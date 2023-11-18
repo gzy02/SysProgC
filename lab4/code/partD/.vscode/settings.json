@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "*.html": "jinja",
+        "*.sql": "sql",
+        "*.json": "jsonc",
+        "concur-hash.h": "c"
+    }
+}

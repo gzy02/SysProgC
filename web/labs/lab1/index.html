@@ -1,0 +1,320 @@
+<html lang="en" xmlns="http://www.w3.org/1999/html" xmlns="http://www.w3.org/1999/html">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>Lab 1: Compiler</title>
+    <link rel="stylesheet" href="../labs.css" type="text/css">
+</head>
+<body>
+
+<h1>Lab 1: Compiler</h1>
+<hr/>
+
+<h2>Overview</h2>
+<p>
+    A compiler is an important software infrastructure to
+    translate source programs developed using high-level language
+    (e.g., C, Python, or Java)
+    into semantic equivalent binary programs in low-level languages
+    (e.g., x86, RISC, or ARM). Furthermore, the generated binary
+    programs by a compiler are linked against libraries to
+    create the final executables.
+</p>
+<p>
+    In this lab, you will gain a deeper understanding of
+    compiler by creating a toy compiler from a minimal subset
+    of C to RISC-V. In the meanwhile, you will implement a minimal
+    subset of C libraries to understand how to create language
+    libraries (runtimes) in general.
+</p>
+
+<h3>Hand-in Procedure</h3>
+<p>
+    When you finished the lab, zip your code files
+    with the file name <samp>student ID-lab-1.zip</samp>
+    (e.g., <samp>SA19225789-lab-1.zip</samp>)
+    and submit it to the
+    <a href="https://bb.ustc.edu.cn/">Online
+        Teaching Platform</a>.
+    The deadline is 23:59, Oct. 13, 2023 (Beijing time).
+    Any late submission will <b>NOT</b> be accepted.
+</p>
+
+
+<hr/>
+
+<h2>Part A: Libraries</h2>
+<p>
+    C language library files are a collection of precompiled
+    functions and data that can be reused in programs.
+    Library files provide a modular way to organize and
+    share code for reuse in different programs.
+    In this section, let us start by implementing a minimal
+    C library: <samp>mini-lib</samp>. You should download
+    this <a href="../lab1.zip">code skeleton</a> to start with.
+</p>
+
+<p>
+    The following figure depicts the overall structure of
+    the software stack: on top of the underlying hardware
+    are operating systems which manages not only resources
+    but also applications; libraries reside in the middle
+    level which utilized operating system resources via
+    system calls; applications reside on top of
+    the software stack, which may invoke functions in
+    libraries or operating systems.
+</p>
+<img src="figures/lib-1.png" width="400" alt=""/>
+
+<div class="required">
+    <b>Exercise 1: </b>
+    We have provided the implementation of a library
+    <samp>puts()</samp>. In this exercise, your job is
+    to understand the implementation the
+    function, but do not need to write any new code.
+
+    The <samp>puts()</samp> function sends a string to
+    the standard output. You can find the code
+    in the <samp>mini-lib.c</samp> file in lab1.
+    <pre>
+    int puts(char *s) {
+        long n = strlen(s);
+        long r;
+        asm(CALL(SYS_WRITE)
+        "movq $1, %%rdi\n"
+        "movq %1, %%rsi\n"
+        "movq %2, %%rdx\n"
+        "syscall\n"
+        "movq %%rax, %0\n"
+        : "=r"(r)
+        : "r"(s), "r"(n)
+        : "%rax", "%rdi", "%rsi", "%rdx");
+        return (int)r;
+    }
+    </pre>
+    This library makes use of
+    <a href="https://en.wikipedia.org/wiki/System_call">
+        system calls</a>
+    to implement its functionalities. Specifically, we make
+    use of the Linux
+    <a href="https://blog.rchapman.org/posts/Linux_System_Call_Table_for_x86_64/">
+        x86-64 system calls</a>, which is useful
+    to understand this code. You may also want to refer to
+    the <a href="https://gcc.gnu.org/onlinedocs/gcc/Extended-Asm.html">
+    inline assembly specification</a>.
+    <p>
+        Here, we make a self-contained explanation to
+        the above code: this code implements the system call
+    </p>
+    <pre>
+        write(fd, buf, size)
+    </pre>
+    according to the system call specification, the system call
+    number (i.e., <samp>$1</samp>) is loaded into the
+    <samp>%rax</samp> register, and the arguments
+    <samp>fd</samp>, <samp>buf</samp>, and <samp>size</samp>
+    are loaded into registers <samp>%rdi</samp>,
+    <samp>%rsi</samp>, and
+    <samp>%rdx</samp>, respectively.
+    When the system call returns, the return value resides
+    in the <samp>%rax</samp> register.
+</div>
+
+
+<div class="required">
+    <b>Exercise 2: </b>
+    Implement the <samp>exit()</samp> function, which
+    terminates the execution of a program and exits, with
+    the following prototype:
+    <pre>
+    void exit(int status);
+    </pre>
+</div>
+
+<div class="required">
+    <b>Exercise 3: </b>
+    Implement the <samp>alarm()</samp> functions, which
+    sets up a timer that fires a signal (SIGALARM)
+    after a specified time interval, with the following
+    prototype:
+    <pre>
+    int alarm(unsigned int seconds);
+    </pre>
+    <p>
+        After implementing the <samp>puts()</samp>,
+        <samp>exit()</samp>, and
+        <samp>alarm()</samp> functions, compile and run
+        the project to justify your answer.</p>
+    <pre>
+    css-lab@tiger:~$ <kbd>./notmain.out</kbd>
+    </pre>
+    <p>
+        The result are similar to the output below.
+    </p>
+    <pre>
+    hello, world
+    hello, world
+    hello, world
+    hello, world
+    hello, world
+    Alarm clock
+    </pre>
+</div>
+
+<div class="challenge">
+    <i>Challenge.</i>
+    Implement the output function <samp>printf()</samp>.<br>
+    Hint: you may find the var-arg feature useful.
+</div>
+
+<div class="challenge">
+    <i>Challenge.</i>
+    Implement <samp>sleep()</samp>.<br>
+    Hint: recent Linux uses <samp>nanosleep</samp>, which
+    takes argument of type <samp>struct time spec</samp>.
+</div>
+
+
+<hr>
+<h2>Part B: The <samp>mcc</samp> Compiler</h2>
+
+<p>
+    In this section, we are going to read and understand a
+    compiler called <samp>mcc</samp>. <samp>mcc</samp> is
+    a toy compiler
+    from <samp>MiniC</samp> (a minimal subset of C), to
+    x86-64.
+    Then, you will extend the <samp>mcc</samp> compiler
+    to support RISC-V, a recent and popular RISC ISA.
+</p>
+
+<h3>Software setup</h3>
+<p>
+    Before writing any code, you should first set up
+    required software. Specifically, we need
+    <samp>flex</samp> and <samp>bison</samp> to build the
+    compiler front-end: <samp>flex</samp> is a tool used
+    for generating lexical analyzers, whereas
+    <samp>Bison</samp> is a tool used for generating syntax
+    analyzers.
+</p>
+<pre>
+    css-lab@tiger:~$ <kbd>sudo apt-get install flex</kbd>
+    css-lab@tiger:~$ <kbd>sudo apt-get install bison</kbd>
+</pre>
+<p>
+    To double-check the installation is successful:
+</p>
+<pre>
+    css-lab@tiger:~$ <kbd>flex --version</kbd>
+    css-lab@tiger:~$ <kbd>bison --version</kbd>
+</pre>
+<p>
+    You do not need to write any code for flex and bison in
+    this lab. But you can refer to the
+    <a href="https://westes.github.io/flex/manual/">
+        flex document</a> and
+    <a href="https://www.gnu.org/software/bison/manual/bison.html">
+        bison document</a>, if you are interested.
+</p>
+
+<p>
+    To use <samp>mcc</samp> compile code, you need make it
+    first, and then you can use <samp>mcc</samp> to compile
+    your code. For example:
+</p>
+<pre>
+    css-lab@tiger:~/lab1/mcc$ <kbd>make</kbd>
+    css-lab@tiger:~/lab1/mcc$ <kbd>./mcc input.c</kbd>
+</pre>
+<p>
+    <samp>mcc</samp> will compile <samp>input.c</samp>
+    and generate an executable named <samp>a.out</samp> in
+    current directory.
+</p>
+
+<div class="required">
+    <b>Exercise 4.</b>
+    Read and understand the code for compiler pipeline.
+    What does the compiler do when the parameters <samp>"-o"</samp>,
+    <samp>"-S"</samp>, <samp>"-c"</samp>, <samp>"-m"</samp>
+    and <samp>"-v"</samp> are added or not, and how can these
+    parameters be used in combination?
+</div>
+
+
+<div class="required">
+    <b>Exercise 5.</b>
+    First, you should read the code generation
+    for x86-64, and understand the code generation
+    algorithm. How does <samp>mcc</samp> implement an assignment
+    statement like <samp>a = a + 5</samp>.
+    What about an output statement <samp>print(a)</samp>?
+
+</div>
+
+<div class="required">
+    <b>Exercise 6.</b>
+    Implement code generation for RISC-V.
+    <p>
+        Hint: You should install the RISC-V environment
+        on your Ubuntu.<br/>
+        Install RISC-V cross-compiler tool:
+    <pre>
+        css-lab@tiger:~$ <kbd>sudo apt install gcc-riscv64-linux-gnu</kbd></pre>
+
+    Select a directory to pull the source of <samp>spike</samp>
+    and compile it:
+    <pre>
+        css-lab@tiger:~$ <kbd>sudo apt install g++</kbd>
+        css-lab@tiger:~$ <kbd>sudo apt-get install device-tree-compiler</kbd>
+        css-lab@tiger:~$ <kbd>git clone https://github.com/riscv/riscv-isa-sim</kbd>
+        css-lab@tiger:~$ <kbd>cd riscv-isa-sim</kbd>
+        css-lab@tiger:~/riscv-isa-sim$ <kbd>mkdir build</kbd>
+        css-lab@tiger:~/riscv-isa-sim$ <kbd>cd build</kbd>
+        css-lab@tiger:~/riscv-isa-sim/build$ <kbd>../configure</kbd>
+        css-lab@tiger:~/riscv-isa-sim/build$ <kbd>make</kbd>
+        css-lab@tiger:~/riscv-isa-sim/build$ <kbd>sudo make install</kbd>
+    </pre>
+    To double-check the installation is successful:
+    <pre>
+        css-lab@tiger:~$ <kbd>spike --help</kbd>
+    </pre>
+
+    Use static link to generate final executables.
+    For example, to compiler the file <samp>hello.c</samp>:
+    <pre>
+        css-lab@tiger:~/lab1/mcc$ <kbd>riscv64-linux-gnu-gcc -static hello.c</kbd>
+        css-lab@tiger:~/lab1/mcc$ <kbd>spike pk a.out</kbd>
+        bbl loader
+        hello, world
+    </pre>
+</div>
+
+
+<div class="challenge">
+    <i>Challenge.</i>
+    Implement JIT for <samp>mcc</samp>.
+</div>
+
+
+<br>
+<hr>
+This completes this lab. Remember to zip your homework
+with the file
+name <samp>student ID-lab-1.zip</samp> (e.g.,
+<samp>SA19225789-lab-1.zip</samp>), and
+submit it to the <a href="https://bb.ustc.edu.cn/">
+    Online Teaching Platform</a>.
+
+<p>
+    Happy hacking!
+</p>
+
+
+<br>
+<br>
+
+
+</body>
+
+</html>

@@ -1,0 +1,577 @@
+<html lang="en" xmlns="http://www.w3.org/1999/html">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>Lab 3: Network Sniffing</title>
+    <link rel="stylesheet" href="../labs.css" type="text/css">
+</head>
+
+<body>
+<h1>Lab 3: Network Sniffing</h1>
+<hr/>
+
+<h2>Overview</h2>
+<p>
+    Socket programming is an elegant programming interface for
+    both application and low-level packet processing.
+</p>
+<p>
+    In this lab, you will familiarize yourself with network
+    programming by utilizing sockets.
+    Specifically, you will first implement a Web server by using
+    application-level socket. Next, you will experiment with
+    ICMP tunneling, packet sniffing, and packet
+    spoofing, by using raw sockets.
+</p>
+
+<p>
+    You should download <a href="../lab3.zip">this source code</a>
+    to start with this lab.
+</p>
+
+<h3>Hand-in Procedure</h3>
+<p>
+    When you finished the lab, zip you code files with file
+    name <samp>ID-lab-3.zip</samp>
+    (e.g., <samp>SA19225111-lab-3.zip</samp>),
+    and submit it to
+    <a href="https://bb.ustc.edu.cn/">Online Teaching Platform</a>.
+    The deadline is 23:59 of Oct. 22, 2023 (Beijing time).
+    Any late submission will <b>NOT</b> be accepted.
+</p>
+
+
+<hr/>
+
+<h2>Part A: Web Server</h2>
+
+<h3>1. Square Server</h3>
+<p>
+    In this part, you need to implement a square server. The server
+    fetch a number <samp>n</samp> from the client,
+    calculates its square <samp>n*n</samp> then returns
+    the result to the client.
+    And when the client inputs a special command <samp>bye</samp>,
+    should disconnect from the server.
+</p>
+
+<h4>The Socket</h4>
+<p>
+    The socket interface provides a mechanism for setting up a
+    communication channel to another host system.
+</p>
+
+<p>
+    The server calls <samp>socket()</samp> to create a new
+    socket. Like other IPCs such as pipes or memory mapped files,
+    sockets are treated as files, thus it is convenient to
+    process sockets with file operations (e.g., one can read
+    file a socket with <samp>read()</samp>).
+</p>
+
+<pre>
+    /* defined in sys/socket.h */
+    int socket(int domain, int type, int protocol);
+</pre>
+
+<p>
+    The <samp>domain</samp> field declares the socket domain,
+    indicating whether the socket belongs to IPv4, IPv6, or
+    Unix. The <samp>type</samp> field determines the type of
+    the socket:
+    byte stream, datagram, or raw data. The <samp>protocol</samp>
+    field indicates the protocol to be used in this socket.
+</p>
+
+<p>
+    Some typical values for the field <samp>domain</samp>
+    has been listed in the following table. For example, the
+    constant <samp>AF_INET</samp>  indicates an IPv4 network,
+    whereas <samp>AF_INET6</samp>  indicates an IPv6 network.
+</p>
+<table border="1">
+    <thead>
+    <tr>
+        <th>Field</th>
+        <th>Constant</th>
+        <th>Purpose</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <td rowspan="4">domain</td>
+        <td>AF_INET</td>
+        <td>IPv4 addresses</td>
+    </tr>
+    <tr>
+        <td>AF_INET6</td>
+        <td>IPv6 addresses</td>
+    </tr>
+    <tr>
+        <td>AF_LOCAL</td>
+        <td>Unix domain socket</td>
+    </tr>
+    <tr>
+        <td>AF_NETLINK</td>
+        <td>Netlink socket</td>
+    </tr>
+    </tbody>
+</table>
+
+
+<h4>Server Socket Interface</h4>
+<p>
+    After creating a socket, the server can make use of the
+    following three function to accept requests from clients
+    (The well-known <samp>bind-listen-accept</samp> socket
+    programming idiom.)
+</p>
+<pre>
+    int bind(int socket, const struct sockaddr *address, socklen_t address_len);
+    int listen(int socket, int backlog);
+    int accept(int socket, struct sockaddr *address, socklen_t *address_len);
+</pre>
+<p>
+    First, the <samp>bind()</samp> function binds the current socket
+    to an address.
+    Second, the <samp>listen()</samp> function
+    converts the socket to a connection-oriented
+    server socket with a designated request queue.
+    The second parameter,
+    <samp>backlog</samp>, sets up the maximum number of enqueued
+    connection
+    requests.
+    Finally, a call to function <samp>accept()</samp>
+    establishes connections with incoming requests.
+    The accept() function is blocking, so the process will block
+    until a new request arrives. When a new request arrives,
+    <samp>accept()</samp> establish
+    the connection with a new socket, storing the client address
+    in the <samp>address</samp> variable.
+</p>
+<img src="figures/socket7.png" width="300" alt=""/>
+
+<div class="required">
+    <b>Exercise 1:</b>
+    Read the code in the file <samp>square-server.c</samp>, we have
+    provided you with the aforementioned function calls.
+    Make sure you read and understand them before continuing.
+    You do not need to write code for this exercise.
+</div>
+
+
+<h4>Client Socket</h4>
+<p>
+    After creating a server socket, we can develop a client socket
+    making requests to the sever socket.
+    Compared with server socket, client socket is simpler: it
+    just connects to the server by invoking the following function.
+</p>
+
+<pre>
+    /* defined in sys/socket.h */
+    int connect(int socket, const struct sockaddr *address, socklen_t address_len);
+</pre>
+
+<div class="required">
+    <b>Exercise 2:</b>
+    Read the code in the file <samp>square-client.c</samp>, we have
+    provided you with the aforementioned function calls.
+    Make sure you read and understand them before continuing.
+    You do not need to write code for this exercise.
+</div>
+
+<p>
+    Having finished reading both the server and client code,
+    we can (finally) compile and run them, in two separate
+    terminals.
+</p>
+<pre>
+    css-lab@tiger:~$ <kbd>make square-server </kbd>        
+    gcc square-server.c -o square-server.out
+    ./square-server.out
+    Server is listening on port 12345...
+    ...
+</pre>
+<pre>
+    css-lab@tiger:~$ <kbd>make square-client </kbd>  
+    gcc square-client.c -o square-client.out
+    ./square-client.out
+    Connected to server. Enter 'bye' to exit.
+    ...
+</pre>
+
+<div class="question">
+    <b>Exercise 3:</b>
+    Finish the square functionality of the server, that is,
+    when the client request a number <samp>n</samp>, the
+    server calculates and returns <samp>n*n</samp>.
+    Do not forget to process the special exiting command
+    <samp>bye</samp> from the client.
+</div>
+
+<div class="required">
+    <b>Exercise 4.</b>
+    Extend your square server to calculate squares for
+    floating-point numbers, besides integers.<br>
+
+    Hint: You can design your own protocol. For example, when
+    the client sends <samp>i 1</samp>, the server treats
+    it as an integer, when the client sends <samp>f 1</samp>,
+    the server treats it as a float.
+</div>
+
+<div class="challenge">
+    <i>Challenge.</i>
+    Suppose you use a socket based on UDP, instead of TCP, how
+    can you guarantee that the client can always get the
+    square results? Is retry a good idea? Implement your
+    idea with a UDP socket.
+</div>
+
+<h3>2. Web Server</h3>
+<p>
+    In this part, we will implement a minimal but working
+    HTTP server, to demonstrate how to use TCP sockets to build
+    high-level the protocols such as HTTP.
+</p>
+<p>
+    The next figure presents the basic architecture of both a
+    Web server and Web client (normally a browser).
+    The client sends HTTP requests to the server, and the
+    server sends back responses.
+</p>
+<img src="figures/socket2.png" width="400" alt=""/>
+
+<div class="required">
+    <b>Exercise 5.</b>
+    We have provided a code skeleton in the file
+    <samp>web-server.c</samp>.
+    Finish the code for the <samp>GET</samp> request.
+    How does your Web server serve files that does not
+    exist?
+</div>
+
+<p>
+    To test your code, open your favorite browser, and
+    request some files.
+</p>
+<pre>
+css-lab@tiger:~$ <kbd>ifconfig</kbd>
+eth0: flags=4163&lt;UP,BROADCAST,RUNNING,MULTICAST> mtu 1500
+      inet 192.168.37.60  netmask 255.255.240.0  broadcast 192.168.47.255
+      inet6 fe80::215:5dff:fe9b:2b4e  prefixlen 64  scopeid 0x20<link>
+      ether 00:15:5d:9b:2b:4e  txqueuelen 1000  (Ethernet)
+      RX packets 98802  bytes 62267057 (62.2 MB)
+      RX errors 0  dropped 0  overruns 0  frame 0
+      TX packets 63864  bytes 17556137
+      TX errors 0 dropped 0 overruns 0 carrier 0 collisions 0
+</pre>
+
+<p>
+    For files does exist on your server, the output looks like:
+</p>
+<img src="figures/socket10.png" width="400" alt=""/>
+
+<p>
+    Otherwise, for non-existent files, the output looks like:
+</p>
+<img src="figures/socket11.png" width="400" alt=""/>
+
+<div class="required">
+    <b>Exercise 6:</b>
+    Implement the <samp>DELETE</samp> request. You can refer to the
+    <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods/DELETE">
+        DELETE document</a>
+    for details on <samp>DELETE</samp>.
+</div>
+
+<div class="required">
+    <b>Exercise 7:</b>
+    Run your Web server, then enter the following command in the terminal:
+<pre>
+css-lab@tiger:~$ <kbd>curl "http://127.0.0.1:8080/index_$(printf 'a%.0s' {1..1500}).html?"</kbd></pre>
+    What do you observe? How does it threat your server?
+    How to mitigate?
+</div>
+
+<div class="challenge">
+    <i>Challenge:</i>
+    The current implementation of Web server is single-process,
+    that is, it can only server one client at a time.
+    Modify the Web server to serve multiple HTTP requests
+    simultaneously.
+</div>
+
+
+<hr>
+<h2>Part B: ICMP Tunneling</h2>
+
+<h3>1. Raw Socket</h3>
+<p>
+    Raw sockets allows us to access and process low-level
+    packets. By low-level, we are talking about packets
+    at or under the transportation layer. As the following
+    figure depicts, the user application can set up socket
+    at diverse layers.
+</p>
+<img src="figures/raw_socket.jpg" width="500" alt=""/>
+<p>
+    To create a raw socket, we call the <samp>socket</samp>
+    function with arguments like the following:
+<pre>
+    int sock = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));</pre>
+    which will set up a raw socket at the link layer, that is,
+    we can obtain and process all Ethernet packets.
+</p>
+<p>
+    For more information and combination of arguments, you may
+    want to refer to some <a href="https://zhuanlan.zhihu.com/p/59327439">
+    online documents</a>.
+</p>
+
+<h3>2. ICMP Tunnel</h3>
+<p>
+    The firewall of computer will inspect and filter network packets,
+    deciding whether to allow or deny the packets based
+    on predefined rules and policies.
+    For example, firewall sometimes
+    blocks access to some ports. However, general firewalls do not
+    block the ICMP protocol (ping packets). Therefore, we can
+    bypass the firewall by establishing an <emph>ICMP tunnel</emph>.
+</p>
+
+<p>
+    ICMP (Internet Control Message Protocol) is used to send control
+    messages in TCP/IP networks, providing feedback for various
+    problems that may occur in the communication environment.
+    The ICMP packet format is:
+</p>
+<img src="figures\icmp_format.png" width="350" alt=""/>
+
+<p>
+    The query packets in ICMP protocols are classified
+    into two categories: <samp>Echo request</samp> and
+    <samp>Echo reply</samp>. When an <samp>Echo request</samp>
+    packet is sent to a server, it will reply with an
+    <samp>Echo reply</samp> packet.
+    The useful <samp>ping</samp> command works in this way.
+</p>
+<p>
+    The data structure for ICMP resides in <samp>netinet/ip_icmp.h</samp>:
+</p>
+<pre>
+    struct icmphdr{
+      uint8_t type;		/* message type */
+      uint8_t code;		/* type sub-code */
+      uint16_t checksum;
+      union{
+        struct{
+          uint16_t	id;
+          uint16_t	sequence;
+        } echo;			/* echo datagram */
+        uint32_t	gateway;	/* gateway address */
+        struct{
+          uint16_t	__glibc_reserved;
+          uint16_t	mtu;
+        } frag;			/* path mtu discovery */
+      } un;
+    };
+</pre>
+
+<p>
+    With this data structure, we can construct ICMP packages.
+    ICMP messages have an optional <samp>data</samp> field,
+    which we will abuse to transport information.
+</p>
+
+<div class="question">
+    <b>Exercise 1:</b>
+    Do we need calculate the <samp>checksum</samp> field for
+    the ICMP header? If so, what algorithm we should use?
+</div>
+
+<p>
+    We use the following structure to organize the data segments:
+</p>
+
+<pre>
+    typedef struct icmp_tunnel{
+        unsigned char sname[NAMESIZE];
+        unsigned char dname[NAMESIZE];
+        unsigned char data[BUFFSIZE];
+    }tunnel;
+</pre>
+
+We will put this structure in the data segment of the ICMP packet
+and send it to the specified IP with the type <samp>Echo request</samp>.
+If the other host is online, it can receive the message we sent, and likewise,
+we can also receive the message sent by the other, so ICMP
+tunnel communication can be achieved.
+
+<pre>
+     -----------------------------------------------------------------------
+    |css-lab@tiger:~$ <kbd>sudo ./icmp</kbd>       |css-lab@tiger:~$ <kbd>sudo ./icmp</kbd>       |
+    |Enter your name: H1                |Enter your name: H2                |
+    |Who you want to talk: H2           |Who you want to talk: H1           | 
+    |Enter the dest IP: 127.0.0.1       |Enter the dest IP: 127.0.0.1       |
+    |hello!                             |       H1 : hello!                 |
+    |I'm H1                             |       H1 : I'm H1                 |
+    |        H2 : hi                    |hi                                 |
+    |        H2 : I'm H2                |I'm H2                             |
+     -----------------------------------------------------------------------
+</pre>
+
+<div class="question">
+    <b>Exercise 2:</b>
+    Finish the function <samp>senddata</samp> to send a given data
+    to the communication peer.
+</div>
+
+<div class="challenge">
+    <i>Challenge:</i>
+    Now that we are communicating in plaintext. Can we use
+    any encryption and decryption algorithms to make our data
+    less vulnerable to eavesdropping? Implement your idea.
+</div>
+
+
+<hr>
+<h2>Part C: Network Sniffing</h2>
+
+<h3>1. Promiscuous Mode</h3>
+<p>
+    Computers are connected to the network through network
+    interface cards (NICs). A NIC is a physical or logical connection
+    between a computer and the network. Each NIC has a hardware
+    address, which is called a MAC address.
+</p>
+<p>
+    When the NIC receives
+    a packet from the network, it copies the packet to the memory
+    of NIC, and checks the destination address in the header of
+    the data frame. If the destination address does not
+    match the MAC
+    address of the NIC, the packets are discarded without further
+    processing. Otherwise,
+    the data frame is copied to the kernel
+    cache, and the NIC then interrupts to tell the CPU to
+    finish processing the data.
+</p>
+<p>
+    Because the NIC discards packets that do not match its MAC
+    address, a network sniffer cannot obtain these frames. Fortunately,
+    most network cards have a special mode called
+    <a href="https://en.wikipedia.org/wiki/Promiscuous_mode">
+        promiscuous mode</a>. In this mode, the NIC passes
+    <em>all</em> data frames it receives from the network to
+    the kernel, regardless of whether the address matches.
+</p>
+<p>
+    In this part, we need to turn on the promiscuous mode
+    of the local network card, to sniff packets in the wild.
+</p>
+
+<div class="question">
+    <b>Exercise 1:</b> Read the functions <samp>raw_init()</samp> and
+    <samp>clear_flag()</samp> in the file <samp>main.c</samp>,
+    to have some ideas on how to enable and disable
+    promiscuous mode.
+    You do not need to write code for this exercise.
+</div>
+
+<h3>
+    2. Network Sniffing
+</h3>
+<p>
+    In this part, you need to analyze the structure of
+    ARP, ICMP, TCP, and UDP packets and print detailed information
+    of them.
+</p>
+<div class="required">
+    <b>Exercise 2:</b> Refer to the ICMP analysis function given in
+    <samp>packet-process.h</samp> and <samp>packet-process.c</samp>
+    to complete the analysis function of the remaining three packets.
+    Fill in the missing code.
+</div>
+<b>Packet filter</b>
+<p>
+    During network sniffing, sniffers are often only
+    interested in certain types of packets (e.g., TCP packets).
+    Therefore, after packets are captured, you need
+    to filter out some uninteresting packets.
+</p>
+
+<div class="question">
+    <b>Exercise 3:</b>
+    Check the <samp>filter.h</samp> for details of the
+    function declarations. Refer to the given function
+    <samp>filterByIpAddress()</samp> and <samp>filterByMacAddress()</samp>,
+    please complete filter by
+    protocol type, and port number. Run your
+    program to check if it works correctly.
+</div>
+
+
+<hr>
+<h2>Part D. Packet Spoofing</h2>
+<p>
+    In this part, you implement packet spoofing. Specifically,
+    we have given a program for forging ICMP packet.
+    Feel free to refer to code in Part C to create packets.
+</p>
+
+<h4>
+    1. ARP forgery
+</h4>
+<div class="question">
+    <b>Exercise 4:</b>
+    Complete <samp>ARP-forge.c</samp> to forge ARP protocol packets.
+</div>
+
+<h4>2. UDP forgery</h4>
+<div class="question">
+    <b>Exercise 5:</b>
+    Complete <samp>UDP-forge.c</samp> to forge UDP packets.
+</div>
+
+<h4>3. TCP packet forgery</h4>
+<p>
+    Forging a valid TCP packet is more challenging.
+    Nevertheless, to forge an initial SYN packet is relatively
+    easy.
+</p>
+<div class="challenge">
+    <i>Challenge:</i> Why forging valid TCP packets is
+    challenging? Implement the forgery of TCP SYN packet.
+    Do not forget to calculate the TCP checksums.
+</div>
+
+<br>
+<hr>
+This completes this lab. Remember to zip you
+code with file
+name <samp>ID-lab-3.zip</samp> (e.g.,
+<samp>SA19225789-lab-3.zip</samp>), and
+submit it to <a href="https://bb.ustc.edu.cn/">Online Teaching
+    Platform</a>.
+
+<p>
+    Happy hacking!
+</p>
+
+<br>
+<br>
+
+
+</body>
+
+</html>
+
+
+
+
+
+
+
+
+

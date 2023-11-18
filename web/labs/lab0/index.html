@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/html">
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>Lab 0: Software Setup</title>
+    <link rel="stylesheet" href="../labs.css" type="text/css">
+</head>
+
+<body>
+
+<h1>Lab 0: Software Setup</h1>
+
+<hr>
+
+<h2>Overview</h2>
+<p>
+    In this lab, you will install and set up the software
+    used in this course, including virtual machines, operating
+    systems, compilers, debuggers, IDEs, among others.
+    As some labs (e.g., network sniffing) is dangerous and may
+    bring serious consequences, so you should finish these
+    labs in virtual machines, but NOT in your
+    local machines.
+</p>
+
+<h3>Hand-in Procedure</h3>
+<p>
+    After finishing the assignment, you should zip your code
+    files with the file
+    name <samp>student ID-lab-&lt;n&gt;.zip</samp>
+    (e.g., <samp>SA19225789-lab-0.zip</samp>)
+    and submit it to the
+    <a href="http://yjs.ustc.edu.cn/">Postgraduate Information Platform</a>.
+</p>
+
+<p>
+    You do NOT need to submit anything for this lab.
+</p>
+
+<hr>
+<h2>Part A: Installing Linux</h2>
+<p>
+    All labs in this course must be finished using a
+    Linux system, and we will be using Ubuntu for our lab.
+    In this part, you should install Linux first, if you have not.
+</p>
+
+<h3>1: Windows</h3>
+<p>
+    Please follow these steps to set up the Windows Subsystem
+    for Linux (WSL):
+</p>
+
+<p>
+    1. Create a new text file <samp>run.bat</samp> (Windows script file)
+    at any location and paste
+    the following content into it:
+</p>
+
+<pre>
+pushd "%~dp0"
+dir /b %SystemRoot%\servicing\Packages\*Hyper-V*.mum > hyper-v.txt
+for /f %%i in ('findstr /i . hyper-v.txt 2^>nul') do dism /online /norestart
+/add-package:"%SystemRoot%\servicing\Packages\%%i"
+del hyper-v.txt
+Dism /online /enable-feature /featurename:Microsoft-Hyper-V -All /LimitAccess /ALL
+pause
+</pre>
+<p>
+    Save the file then right-click it, and run it with the administrator
+    privilege. Finally, reboot your computer.
+</p>
+
+<p>
+    2. After your computer rebooted, open Windows Features
+    (Press <samp>Win+R</samp> and enter <samp>optionalfeatures.exe</samp>):
+    <br/><img src="figures/lab0-1.png" alt="" width="400"><br/>
+
+    Enable the following three options: Hyper-V, Windows Subsystem
+    for Linux, and Virtual Machine Platform:
+    <br/><img src="figures/lab0-2.png" alt="" width="400">
+    <br/><img src="figures/lab0-3.png" alt="" width="400">
+</p>
+
+<p>
+    3. Run PowerShell with an administrator privilege, then run the command
+    to update WSL:
+</p>
+<pre>
+    $ <kbd>wsl --update</kbd>
+</pre>
+
+<p>
+    4. If you want to learn more about WSL, please refer to the
+    <a href="https://learn.microsoft.com/en-us/windows/wsl/">
+        Microsoft Official Documentation</a>.
+</p>
+
+
+<h3>2: Mac (x86) or Linux</h3>
+<p>
+    Download and install <a href="https://multipass.run/install">
+    Multipass</a> with the following steps:
+</p>
+<p>
+    1. Install multipass using brew:
+</p>
+<pre>
+    $ <kbd>brew install --cask multipass</kbd>
+</pre>
+
+<p>
+    2. Create and launch Ubuntu:
+</p>
+<pre>
+    $ <kbd>multipass launch --cpus 4 --disk 10G --mem 4G --name css-lab</kbd>
+</pre>
+<p>
+    Play attention to the <samp>Name</samp> and <samp>IPv4</samp> values
+    for the newly created Ubuntu. You'll need them to connect to the
+    virtual machine using VSCode.
+</p>
+<p>3. Access Ubuntu:</p>
+<pre>
+    $ <kbd>multipass shell css-lab</kbd>
+</pre>
+
+<p>
+    4. For accessing the container, you need to add the Mac's
+    public key to the virtual machine first. On your Mac,
+    use the following command to retrieve the public key:
+</p>
+<pre>
+    $ <kbd>cat .ssh/id_rsa.pub</kbd>
+</pre>
+
+<p>If it doesn't exist, create one using:</p>
+
+<pre>
+    $ <kbd>ssh-keygen -t rsa</kbd>
+</pre>
+
+<p>
+    Then, just press "Enter" for all the subsequent prompts.
+    Use the <kbd>cat</kbd> command to view the Mac's public key:
+</p>
+<pre>
+    $ <kbd>cat .ssh/id_rsa.pub</kbd>
+</pre>
+
+<p>
+    Copy the output and paste it into the virtual machine's
+    <samp>~/.ssh/authorized_keys</samp> file.
+</p>
+
+<p>
+    To remotely connect using VSCode, enter:
+</p>
+
+<pre>
+    $ <kbd>ssh css-lab@192.168.64.2 -A</kbd>
+</pre>
+After this step, you should successfully connect to the VM and use it.
+
+<br/>
+
+<h3>3: Mac (M1/M2/M3)</h3>
+<p>
+    You may want to try <a href="https://mac.getutm.app/">UTM</a>.
+</p>
+
+<hr/>
+<h2>Part B: Install Software</h2>
+<h3>
+    1. Install Ubuntu
+</h3>
+
+<p>
+    To install Ubuntu in Windows WSL, open the WSL terminal
+    and enter the command:
+</p>
+<pre>
+    $ <kbd>wsl --list --online</kbd>
+</pre>
+which will list candidates OS images that you can install:
+
+<br/> <img src="figures/listonline.png" width="600" alt="">
+
+<p>
+    (2) We will be using Ubuntu-22.04 in this course, so
+    enter the command following in the terminal:
+</p>
+<pre>
+    $ <kbd>wsl --install Ubuntu-22.04</kbd>
+</pre>
+<p>
+    (3) Set a user name and password:
+    <br/> <img src="figures/Ubuntuhello.png" width="600" alt="">
+</p>
+
+<p>
+    For Mac, run the
+    <a href="https://multipass.run/install">Multipass commands</a>,
+    to install Ubuntu-22.04:
+</p>
+<pre>
+    $ <kbd>multipass find</kbd>
+</pre>
+
+
+<h3>
+    2. Install GCC
+</h3>
+<p>
+    GCC is a free compiler from the GNU project, and has been
+    adopted as a standard
+    compiler by most Unix-like operating systems
+    (such as Linux, BSD, etc.). For more
+    detailed information
+    about GCC, you can refer to its
+    <a href="https://gcc.gnu.org/onlinedocs/">official
+        documentation</a>.
+</p>
+<p>
+    First install the GCC compiler:
+</p>
+<pre>
+    css-lab@tiger:~$ <kbd>sudo apt-get install gcc</kbd>
+</pre>
+
+<p>
+    And double-check the installation is successful:
+</p>
+<pre>
+    css-lab@tiger:~$ <kbd>gcc --version</kbd>
+    gcc (Ubuntu 11.4.0-1ubuntu1~22.04) 11.4.0
+    Copyright (C) 2021 Free Software Foundation, Inc.
+    ...
+</pre>
+
+<p>
+    Next, prepare the following <samp>hello.c</samp> program:
+</p>
+<pre>
+    #include &lt;stdio.h&gt;
+    void print(){
+        printf("hello, world!\n");
+    }
+
+    int main(){
+        print();
+        return 0;
+    }
+</pre>
+<p>
+    Compile this program to an executable:
+</p>
+<pre>
+    css-lab@tiger:~$ <kbd>gcc hello.c -o hello.out</kbd>
+</pre>
+Run the generated executable:
+<pre>
+    css-lab@tiger:~$ <kbd>./hello.out</kbd>
+    hello, world!
+</pre>
+
+<h3>
+    3. Install GDB
+</h3>
+<p>
+    GDB is a widely-used debugger on UNIX and UNIX-like systems. Using GDB,
+    you can debug your programs to inspect
+    program and data such as variables, registers,
+    and memory status.
+    For more information of GDB, you can refer to
+    its <a href="https://www.gnu.org/software/gdb/documentation/">
+    official documentation</a>.
+</p>
+
+<p>
+    Run the following command to install the GDB debugger:
+</p>
+<pre>
+    css-lab@tiger:~$ <kbd>sudo apt-get install gdb</kbd>
+</pre>
+<p>
+    To double-check your installation successful:
+<pre>
+    css-lab@tiger:~$ <kbd>gdb --version</kbd>
+    GNU gdb (Ubuntu 12.1-0ubuntu1~22.04) 12.1
+    Copyright (C) 2022 Free Software Foundation, Inc.
+    ...
+</pre>
+
+<p>
+    To demonstrate the usage of gdb, let us debug the
+    executable <samp>hello.out</samp> we just compiled with gcc:
+</p>
+<pre>
+    css-lab@tiger:~$ <kbd>gdb hello.out</kbd>
+</pre>
+which will start the gdb.
+<p>
+    We can set up a break point using the <kbd>b</kbd> command.
+    For example, the following command will set up a break point on
+    the function <samp>print()</samp>:
+</p>
+<pre>
+    (gdb) <kbd>b print</kbd>
+    Breakpoint 1 at 0x1171
+    (gdb) <kbd>r</kbd>
+    Starting program: /home/css-lab/a.out
+    [Thread debugging using libthread_db enabled]
+    Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+    Breakpoint 1, 0x0000555555555151 in print ()
+    (gdb) <kbd>c</kbd>
+    Continuing.
+    hello, world
+    [Inferior 1 (process 2953919) exited normally]
+    (gdb) <kbd>q</kbd>
+</pre>
+
+<p>
+    Next, the GDB command <kbd>r</kbd> will execute program being debugged,
+    and will hit the break points:
+</p>
+<p>
+    The command <kbd>c</kbd> will resume the program.
+    Finally, the command<kbd>q</kbd> will exit GDB.
+</p>
+
+
+<h3>4. make</h3>
+<p>
+    Make is a cross-platform building tool.
+    For more detailed information of make, you can refer to
+    its <a href="https://cmake.org/documentation/">
+    official documentation</a>.
+</p>
+<p>
+    We will first install <samp>make</samp>:
+</p>
+<pre>
+    css-lab@tiger:~$ <kbd>sudo apt install make</kbd>
+</pre>
+Make sure your installation of make is successful before continuing:
+<pre>
+    css-lab@tiger:~$ <kbd>make --version</kbd>
+</pre>
+
+<h3>5. Install VSCode</h3>
+<p>
+    Visit the official website of <a href="https://code.visualstudio.com/">
+    VSCode</a>, download and install VS code. (The following
+    figure depicts the installation for Windows, whereas the installation
+    for other platforms are similar.)
+    <br/><img src="figures/installvscode.png" width="691" alt="">
+</p>
+<p>
+    Enter the command following in the wsl terminal,
+    you can open VSCode:
+</p>
+
+<pre>
+    css-lab@tiger:~$ <kbd>code .</kbd>
+</pre>
+<br/><img src="figures/code.png" width="691" alt="">
+
+<h3>6. CLion</h3>
+<p>
+    CLion is another cross-platform IDE (Integrated
+    development environment) designed for C/C++.
+    It contains many intelligent features (e.g., error prompts,
+    code completion, automatic generation of make
+    files),
+    which improve developer productivity.
+</p>
+
+<p>
+    Download and install Clion first. As CLion is a commercial software,
+    you might go to the <a href="https://account.jetbrains.com/login">
+    official website of CLion</a> and use your USTC email to register
+    an account.
+</p>
+
+
+<br>
+<hr>
+This completes this lab. You do NOT need to submit anything for this lab.
+<!--
+Remember to zip your code with the file
+name <samp>student ID-lab-&lt;N&gt;.zip</samp>
+(e.g., <samp>SA19225789-lab-0.zip</samp>), and
+submit it to the <a href="http://yjs.ustc.edu.cn/">
+    Postgraduate Information Platform</a>.
+-->
+
+<p>
+    Happy hacking!
+</p>
+
+<br>
+<br>
+
+
+</body>
+
+</html>

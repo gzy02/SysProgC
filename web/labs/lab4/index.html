@@ -1,0 +1,528 @@
+<html lang="en" xmlns="http://www.w3.org/1999/html">
+<head>
+    <meta http-equiv="Content-Type"  content="text/html; charset=utf-8">
+    <title>Lab 4: Concurrent Objects</title>
+    <link rel="stylesheet" href="../labs.css" type="text/css">
+</head>
+<script>
+window.MathJax = {
+tex: {
+inlineMath: [['$', '$'], ['\\(', '\\)']]
+},
+svg: {
+fontCache: 'global'
+}
+};
+</script>
+
+<script type="text/javascript" id="MathJax-script" async
+        src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js">
+</script>
+
+<body>
+<h1>Lab 4: Concurrent Objects</h1>
+<hr />
+
+<h2>Overview</h2>
+<p>
+    We are entering an era of multiprocessor or multicore
+    programming, where each computer is equipped with multiple
+    processors each of which in turn might have multiple cores. To fully
+    exploit the capability and computation potentials
+    of such modern machines, we need a new discipline of
+    <em>concurrent programming</em>. In this discipline,
+    different computation tasks execute on different cores
+    simultaneously, which might improve overall efficiency of
+    the execution significantly.
+    Yet despite its benefit of efficiency, concurrent programming
+    remains difficult, not only for the new programming idioms it
+    requires, but also for the complicated interactions between
+    execution tasks it leads to.
+</p>
+<p>
+    In this lab, you will learn how to perform concurrent
+    programming. First, you will learn how to program with the basic
+    abstraction of concurrent programming --- threads.
+    Second, you will learn <em>race conditions</em>, one of
+    the most subtle bugs of concurrent programming, and
+    learn how to coordinate different threads to avoid race conditions
+    with synchronization primitives including mutex, spinlocks,
+    and conditional variables.
+    Third, you will learn the concept of atomic variables, and learn
+    how to use them to build synchronization primitives.
+    Finally, you will learn how to build and use concurrent objects, that is,
+    data structures supporting concurrent accesses.
+    Finally, you will implement
+    lock-free concurrent data structures, that is, data structures without
+    using explicit locks.
+</p>
+
+<p>
+    You should download <a href="../lab4.zip">this code</a> to start with this lab.
+</p>
+
+<h3>Hand-in Procedure</h3>
+<p>
+    When you finished the lab, zip you code files with file
+    name <samp>ID-lab-4.zip</samp>
+    (e.g., <samp>SA19225789-lab-4.zip</samp>),
+    and submit it to
+    <a href="https://bb.ustc.edu.cn/">Online Teaching
+        Platform</a>.
+    The deadline is 23:59 of Nov. 7th, 2023 (Beijing time).
+    Any late submission will <b>NOT</b> be accepted.
+</p>
+
+
+<hr />
+
+<h2>Part A: Threads</h2>
+<p>
+    Historically, one computer has just one processor, which
+    is often called a uni-processor machine. On such machines,
+    computation tasks (normally processes) are multiplex on this
+    single processor by task switching. While this programming
+    paradigm gives us the illusion that these tasks runs
+    concurrently, they are indeed running sequentially.
+</p>
+
+<img src="figures/2.png" width="420" alt="a figure
+to describe the multi-process model "/>
+
+<p>
+    Today's computers are mostly multicore machines.
+    To program such computers, we might continue
+    to use the multiprocess programming model, with one process
+    running on one core. Unfortunately, while this model is
+    possible, it has some disadvantages which makes it unideal.
+    First, process is a relatively heavy abstraction with complicated
+    semantics as well as high task switching costs.
+    Furthermore, it is cumbersome to communicate between processes.
+    The synchronization or communication mechanisms are either
+    limited (e.g., pipes can only be used parent-children) or
+    heavy-weighted (e.g., sockets will normally crawl through the whole network
+    stacks).
+</p>
+
+
+<h3>
+    1. Concurrency with Threads
+</h3>
+<p>
+    A thread is a new model to run multiple tasks simultaneously on multi-cores.
+    Unlike processes, threads are lightweight in nature,
+    hence it is cheap to create. Furthermore, threads in a same
+    process share the same address
+    space, hence the (global) data as well as program code
+    can be shared directly between
+    all threads, leading to a much simpler and cheaper communication model.
+</p>
+
+<p>
+    The Posix thread specification supports the following functions, among others:
+    <pre>
+        #include &lt;pthread.h&gt;
+        int pthread_create(pthread_t *thd, const pthread_attr_t *attr,
+            void *(*start)(void *), void *arg);
+        void pthread_exit(void *arg);
+        int pthread_join(pthread_t thd, void **ptr);
+        int pthread_detach(pthread_t thread);
+        pthread_t pthread_self(void);</pre>
+<p>
+    These functions manage the whole life cycle of a thread:
+</p>
+<ul>
+    <li><samp>pthread_create</samp>: creates a new thread and starts running
+        the specified function.
+    </li>
+    <li><samp>pthread_exit</samp>: terminate the current thread.
+    </li>
+    <li><samp>pthread_join</samp>: waits for the thread specified by <samp>thd</samp>
+        to terminate and
+        can optionally retrieve the thread's exit value with the pointer <samp>ptr</samp>.
+    </li>
+    <li><samp>pthread_detach</samp>: detaches the thread. Once detached,
+        the thread will automatically
+        reclaim resources when it ends.
+    </li>
+    <li><samp>pthread_self</samp>: get the thread ID of the current calling thread.
+    </li>
+</ul>
+
+<p>
+    Read the code in the directory <samp>partA</samp>, and finish
+    the following exercises:
+</p>
+
+<div class="required">
+    <b>Exercise 1:</b> Read the file <samp>square.c</samp>, and
+    finish the <samp>main</samp> function to calculate:
+        $$\sum_{i=0}^{n}i^2=0*0 + 1*1 + 2*2 + \ldots + n*n.$$
+</div>
+
+<div class="required">
+    <b>Exercise 2:</b>
+    Read the file <samp>calculate_pi.c</samp>, and
+    finish the function to calculate $\pi$.
+</div>
+
+
+
+<hr/>
+<h2>Part B: Race Conditions and Synchronization</h2>
+<p>
+    Race conditions arise in multithreaded
+    environments when multiple threads access or modify shared data
+    structures simultaneously, with proper synchronizations.
+    Race conditions will lead to not only incorrect results but also
+    undefined behaviors. Hence, to prevent race conditions,
+    proper synchronization mechanisms must be utilized.
+</p>
+
+<h3>1. Race Conditions</h3>
+<p>
+    A race condition happens when two or more threads or processes access
+    shared data simultaneously, and at least one of the thread modifies
+    the data structure.
+</p>
+<div class="question">
+    <b>Exercise 1:</b>
+    Compile and run the code in the file <samp>partB/race_condition.c</samp>,
+    compile and run the code. What is your output? What is the expected
+    output? How does this
+    output generated?
+</div>
+
+<h3>
+    2. Protecting Data with Mutexes
+</h3>
+
+<p>
+    To prevent race conditions, we should utilize synchronization
+    mechanisms. Common synchronization mechanisms include
+    mutexes, semaphores, spinlocks, and conditional variables, among
+    others.
+    Mutex is a basic synchronization mechanism in concurrent programming,
+    to enforce exclusive access to resources.
+</p>
+<p>
+    The pthread library mainly provides the following key functions
+    to implement mutex operations:
+</p>
+<pre>    #include &lt;pthread.h&gt;    
+    int pthread_mutex_init(pthread_mutex_t *mutex, const pthread_mutexattr_t *attr);
+    int pthread_mutex_lock(pthread_mutex_t *mutex);
+    int pthread_mutex_unlock(pthread_mutex_t *mutex);
+    int pthread_mutex_trylock(pthread_mutex_t *mutex);
+    int pthread_mutex_destroy(pthread_mutex_t *mutex);</pre>
+<p>
+    Among them, the pthread_mutex_init function is used to initialize 
+    the mutex. 
+    You can choose to pass in specific attributes or use default 
+    attributes. When a thread wishes to access a resource or code 
+    segment protected by a mutex, it should call pthread_mutex_lock 
+    to try to acquire the mutex. If the mutex is already held by 
+    another thread, the thread will be blocked until the mutex 
+    is released. 
+</p>
+
+<div class="question">
+    <b>Exercise 2:</b>
+    Finish the code in <samp>mutex.c</samp>, to protect the shared
+    variable with mutex. Compile and run your code, what is the output?
+</div>
+
+<h3>
+    3. SpinLocks
+</h3>
+<p>
+    SpinLock is another synchronization mechanism guaranteeing exclusive
+    execution.
+    Unlike mutexes, when a thread tries to acquire
+    an already occupied spin lock, it will spin to check the availability
+    of the lock. Spin locks might provide higher efficiency when contention
+    is not serious, due to the fact that it avoids the overhead
+    of thread context switching. But in high contention
+    scenarios, it may also lead to a waste of CPU resources.
+</p>
+<p>
+    In the pthread library, the operation of spin lock mainly involves 
+    the following key functions.
+</p>
+<pre>
+    #include &lt;pthread.h&gt;  
+    int pthread_spin_init(pthread_spinlock_t *lock, int pshared);
+    int pthread_spin_lock(pthread_spinlock_t *lock);
+    int pthread_spin_unlock (pthread_spinlock_t *lock);
+    int pthread_spin_trylock (pthread_spinlock_t *lock);
+    int pthread_spin_destroy(pthread_spinlock_t *lock);</pre>
+<p>
+    Among them, the pthread_spin_init function is used to initialize a 
+    spin lock, 
+    accepting a lock pointer and a flag to determine whether the lock 
+    should be shared between processes. To acquire a spin lock, a thread 
+    uses the pthread_spin_lock function. If the lock is already held by 
+    another thread, it will keep trying to acquire it until it succeeds. 
+</p>
+<div class="question">
+    <b>Exercise 3:</b>
+    Finish the code in <samp>spinlock.c</samp>, to protect the shared
+    variable with spinlocks. Compile and run your code, what is the output?
+</div>
+<div class="question">
+    <b>Exercise 4:</b>
+    In protecting shared data structures, when should we use a mutex
+    versus a spinlock? There might be no simple answer to this question.
+    Herein, we will try to answer this question according to one simple
+    criteria---the execution time. Please try to measure the execution
+    time for the programs in the above exercise 2 and 3, respectively.
+    Which one runs more efficiently?<br>
+    Hint: you might need not write any new code, try to use the
+    <samp>time</samp> command:
+    <pre>css-lab@tiger:~$ <kbd>time</kbd></pre>
+</div>
+
+<h3>4. Conditional Variables</h3>
+<p>
+    A conditional variable is a synchronization mechanism 
+    used for thread communication, which
+    avoids busy-waiting.
+</p>
+<p>
+    In the pthread library, the operation of condition variables 
+    mainly involves the following key functions.
+</p>
+<pre>
+    #include &lt;pthread.h&gt;  
+    int pthread_cond_init(pthread_cond_t *cond, const pthread_condattr_t *attr);
+    int pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex);
+    int pthread_cond_signal(pthread_cond_t *cond);
+    int pthread_cond_broadcast(pthread_cond_t *cond);
+    int pthread_cond_destroy(pthread_cond_t *cond);</pre>
+<p>
+    Among them, the pthread_cond_init function initializes the condition 
+    variable cond based on the provided attribute attr (or the 
+    default attribute). When a thread needs to wait for a certain 
+    condition cond to become true, it will call the pthread_cond_wait 
+    function and sleep on the condition variable cond.
+</p>
+<p>
+    Using conditional variables along with mutex, we can solve the
+    multi-producer multi-consumer problem more elegantly, in which
+    multiple producers put data items into a shared buffer, whereas
+    multiple consumers get data items out of that buffer simultaneously.
+</p>
+
+<div class="question">
+    <b>Exercise 5:</b>
+    Finish the code in <samp>producer-consumer.c</samp>, to protect
+    shared buffer with conditional variables along with mutex.
+</div>
+
+<hr/>
+<h2>Part C: Synchronization Primitives</h2>
+
+<h3>1. Atomic Variables</h3>
+
+<P>
+    Atomic variables are variables that are designed to be manipulated in 
+    an atomic, or indivisible, manner. This means that operations on these 
+    variables are guaranteed to be completed without interference from other 
+    threads. Atomic operations are essential in multithreaded applications 
+    where shared data can be accessed by multiple threads simultaneously. 
+    The &lt;stdatomic.h&gt; header file provides a set of functions that can be
+    used to perform atomic operations on variables. These include:
+</P>
+
+<ul>
+    <li><samp>atomic_load</samp>: Returns the value of an atomic variable.
+    </li>
+    <li><samp>atomic_store</samp>: Sets the value of an atomic variable.
+    </li>
+    <li><samp>atomic_fetch_add</samp> and <samp>atomic_fetch_sub</samp>: Perform 
+        addition or subtraction on an atomic variable, respectively.
+    </li>
+    <li><samp>atomic_exchange</samp>: Exchanges the value of an atomic variable 
+        with a new value.
+    </li>
+</ul>
+
+<div class="question">
+    <b>Exercise 1</b>:
+    Fill in the missing code in the file <samp>atomic.c</samp>, to complete
+    counter-related functions with atomic variables.
+</div>
+
+<h3>
+    2: Build Synchronization Primitives with Atomic Variables
+</h3>
+
+<p>
+    Atomic variables can be used to build synchronization primitives
+    such as mutexes, semaphores, and spinlocks.
+</p>
+<div class="question">
+    <b>Exercise 2:</b>
+    Please fill in the code in <samp>spinlock.c</samp> and
+    <samp>sema.c</samp>, to implement a spinlock and semaphore using
+    atomic variables, respectively.
+</div>
+
+
+<h3>
+    3: Implementation Principles
+</h3>
+<p>
+    You may wonder how do the high-level atomic variables (like the
+    ones in the header file <samp>stdatomic.h</samp>) are implemented.
+    In fact, these atomic variables are implemented by using
+    atomic instructions on the low-level CPUs, and thus machine-dependent.
+    In this part, we will investigate atomic variable implementations
+    with respect to the Intel x86-64 CPUs, whereas the key rationals
+    also apply to other CPUs like ARM.
+</p>
+<p>
+    Intel CPUs provide atomic instructions, by prefixing instructions
+    with a special key word <samp>lock</samp>.
+    For example, the instruction
+</p>
+    <pre>lock incq (%rax)</pre>
+<p>
+    will increment the value in the memory address pointed by the
+    register <samp>%rax</samp> by 1, atomically. Under the hood, the
+    CPU will lock the memory bus to guarantee exclusive access to
+    memory. Specially, there is a special instruction <samp>CMPXCHG</samp>
+    which will compare and exchange memory values atomically.
+    Essentially,
+    the <samp>CMPXCHG</samp> instruction is Intel's implementation
+    of <a href="https://en.wikipedia.org/wiki/Compare-and-swap">famous <samp>CAS</samp> instructions</a>,
+    which are widely available
+    on diverse CPUs besides x86.
+</p>
+
+<div class="challenge">
+    <i>Challenge.</i>
+    Please read this code in the file <samp>cas.c</samp> and
+    understand how to implement the
+    <samp>atomic_compare_exchange_strong</samp> function.
+    Please implement other atomic operations in the header file
+    <a href="https://en.cppreference.com/w/c/atomic"><samp>stdatomic.h</samp></a>.
+</div>
+
+<div class="challenge">
+    <i>Challenge.</i>
+    You may have noticed that there is a
+    <a href="https://en.cppreference.com/w/c/atomic/memory_order"><samp>memory_order</samp></a>
+    constant in the <samp>stdatomic.h</samp>, what does it mean and
+    how to use it? You may want to refer to
+    <a href="https://research.swtch.com/plmm.pdf">this tutorial</a>
+    to start with.
+</div>
+
+
+<hr/>
+<h2>Part D: Concurrent Data Structures</h2>
+<p>
+    Concurrent data structures supports simultaneously accesses and
+    modifications by multiple concurrent threads.
+    In this part, we will build, as illustrating examples, two concurrent
+    data structures: concurrent stacks and concurrent hash tables.
+</p>
+
+<h3>
+    1: Concurrent stack
+</h3>
+<p>
+    A concurrent stack, like sequential stack, supports typical stack
+    operations such as push(), pop(), and size(), but in a concurrent manner.
+</p>
+
+<div class="question">
+    <b>Exercise 1:</b>
+    Complete the code in <samp>concur-stack.c</samp>.
+    Make sure your code passed the test in <samp>test-stack.c</samp>.
+</div>
+
+<h3>
+    2: Concurrency hash table
+</h3>
+<p>
+    Concurrent hash tables are data structures supporting efficient
+    key searching, in concurrent scenarios.
+</p>
+
+<div class="question">
+    <b>Exercise 2:</b>
+    Finish the code in <samp>concur-hash.c</samp>, which use a coarse-grained
+    mutex to protect the whole hash table.
+</div>
+
+<div class="challenge">
+    <i>Challenge:</i>
+    While the coarse-gained mutex can protect the hash table effectively,
+    it only allows one thread to access the hash table one time.
+    An idea for improvement is to use a fine-grained lock strategy to
+    utilize one mutex for one bucket. Implement this idea.
+</div>
+
+
+<hr/>
+<h2>Part E: Lock-free Data Structures</h2>
+<p>
+    Lock-free data structures protect concurrent operations on shared
+    data without using explicit locks.
+</p>
+
+<p>
+    While various locks (e.g., mutex or spinlock) can guarantee thread
+    safety on shared data structures, they also have effect to serialize
+    operations which are often undesirable. Lockless data structures
+    might improve the whole throughput further by using atomic operations
+    without using explicit locks. In this part, we will build two lock-free
+    data structures: stacks and queues.
+</p>
+
+<h3>
+    1: Lock-free stacks
+</h3>
+<p>
+    The key idea to build a lock-free stack is to compare and swap the stack
+    top atomically.
+</p>
+<div class="question">
+    <b>Exercise 1:</b>
+    Fill in the missing code in <samp>lf-stack.c</samp>.
+</div>
+
+<h3>
+    2: Lock-free queues
+</h3>
+<p>
+    To build a lock-free queues, we use two atomic variables to record
+    the queue's tail and head, respectively. Then we use atomic operations
+    to enqueue or dequeue items.
+</p>
+<div class="question">
+    <b>Exercise 2:</b>
+    Fill in the missing code in <samp>lf-queue.c</samp>.
+    Make sure you code pass the tests.
+</div>
+
+
+<br>
+<hr>
+This completes this lab. Remember to zip you homework with file
+name <samp>ID-lab-4.zip</samp> (e.g., <samp>SA19225789-lab-4.zip</samp>),
+and submit it to <a href="https://bb.ustc.edu.cn/">Online
+    Teaching Platform</a>.
+
+<p>
+    Happy hacking!
+</p>
+
+<br>
+<br>
+
+</body>
+
+</html>

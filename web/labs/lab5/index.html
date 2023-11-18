@@ -1,0 +1,485 @@
+<html lang="en" xmlns="http://www.w3.org/1999/html">
+<head>
+    <meta http-equiv="Content-Type"  content="text/html; charset=utf-8">
+    <title>Lab 5: MapReduce</title>
+    <link rel="stylesheet" href="../labs.css" type="text/css">
+</head>
+
+<body>
+<h1>Lab 5: MapReduce</h1>
+<hr />
+
+<h2>Overview</h2>
+<p>
+    A distributed system is a system whose components are located on
+    different networked computers, which communicate and coordinate their
+    actions by passing messages to one another.
+    A well-designed distributed system provides not only efficiency
+    and scalability, but also fault tolerance and economy.
+    Hence, distributed systems are becoming more and more important in
+    building today's cloud and big-data systems.
+</p>
+<p>
+    In this lab, you will be implementing, with C, some most important
+    infrastructures in distributed computing, and thus gain a deeper
+    understanding of the rationals behind distributed computing system
+    design and implementation.
+    First, you will learn
+    what are remote procedure calls (RPCs), and will use them to build
+    some interesting services.
+    Second, you will implement MapReduce, one of the most influential
+    distributed computing infrastructures.
+    Third, you will implement a sharded key-value store, whereas similar
+    systems powers many popular websites.
+</p>
+
+<p>
+    You should download <a href="../lab5.zip">this code</a>
+    to start with this lab.
+</p>
+
+<h3>Hand-in Procedure</h3>
+<p>
+    When you finished the lab, zip you code files with file
+    name <samp>ID-lab-5.zip</samp>
+    (e.g., <samp>SA19225789-lab-5.zip</samp>),
+    and submit it to
+    <a href="https://bb.ustc.edu.cn/">Online Teaching Platform</a>.
+    The deadline is 23:59 of Nov. 12, 2023 (Beijing time).
+    Any late submission will <b>NOT</b> be accepted.
+</p>
+
+
+<hr />
+
+<h2>Part A: RPC</h2>
+
+<p>
+    Remote procedure call is a communications protocol that 
+    allows a program to call a program or service on another 
+    computer on a network. It allows us to execute a function 
+    on one machine and the function actually runs on another 
+    machine and returns the result. This mechanism is particularly 
+    suitable for distributed systems, allowing interaction between 
+    different systems and languages.
+</p>
+
+<h3>1. Software Setup</h3>
+<p>
+    gorpc is an RPC framework written in Go language, providing
+    a simple API that makes it easy to integrate RPC functionality
+    into Go projects. gorpc utilizes efficient serialization and
+    deserialization methods, as well as optimized network communication
+    protocols, to deliver high-performance RPC services. In addition, 
+    gorpc supports a variety of transport protocols and serialization formats.
+</p>
+<p>
+    To use GoPRPC, you first need to install the Go language 
+    in your environment:
+    <pre>
+    css-lab@tiger:~$ <kbd>sudo apt-get install golang</kbd>
+    css-lab@tiger:~$<kbd>go version</kbd>
+    go version go1.18.1 linux/amd64
+    </pre>
+    If you see the above information, the installation is successful.
+</p>
+
+
+<h3>2. Services and RPCs</h3>
+
+
+<p>
+    In this part, we will create a square server using RPC. 
+    The client will send a number, and the server will square the 
+    number and return the result to the client.
+</p>
+
+<div class="required">
+    <b>Exercise 1:</b>
+    Read the code in partA/square folder and fill the missing code in
+    square-client.c and square-server.c.
+</div>
+
+<p>
+    Next, we will implement a feature to count 
+    the number of words in a string. The <samp>string-client</samp> 
+    will send <samp>hello, world</samp> to the 
+    <samp>string-service</samp>, and the <samp>string-server</samp> 
+    will count the number of words and return the result.
+</p>
+
+<div class="required">
+    <b>Exercise 2.</b>
+    Read the assigned code string-service.c, and complete 
+    string-count functions
+</div>
+
+<p>
+    Similarly, we can also implement RPC-based cloud data structures. 
+    For example, you can design a stack and some of its operations on the 
+    server side and try to call it on the client side.
+</p>
+<div class="required">
+    <b>Exercise 3.</b>
+    Complete the code in <samp>stack-server.h</samp> and <samp>stack-server.s</samp>. 
+    Make sure your code passed the test in <samp>stack-client.c</samp>.
+</div>
+
+<h3>3. Concurrency and Locks</h3>
+<p>
+    In a distributed scenario, a race condition is a situation where 
+    multiple distributed components attempt to access and modify a 
+    shared resource simultaneously, leading to unpredictable results. 
+    To avoid this, locks can be used to ensure that only one component 
+    can access or modify the resource at any given time. In this way, 
+    locks provide a mechanism to ensure that operations on shared resources 
+    are atomic, thereby eliminating potential race conditions.
+</p>
+
+<p>
+    When multiple threads try to modify a shared counter at the same time, 
+    data inconsistency may result if there is no appropriate synchronization 
+    mechanism. Specifically, two or more threads may read the same value of 
+    the counter at the same time, and then perform increment or decrement 
+    operations based on this value. In this way, their modifications may 
+    overwrite each other, resulting in the final count value not being 
+    the expected sum. This situation is often called a race condition. 
+</p>
+<div class="required">
+    <b>Exercise 1.</b>
+    Compile and run the code in the folder partA/count, 
+    compile and run the code. What is your output? What is the 
+    expected output? How does this output generated?
+</div>
+<div class="required">
+    <b>Exercise 2.</b>
+    Modify the code in the partA/count folder, to protect the 
+    shared variable with mutex. 
+    Compile and run your code, what is the output?
+</div>
+<p>
+    When there are multiple clients or multiple threads accessing the sever, 
+    the stack of the RPC implementation also has data competition, so we need 
+    to use some methods to ensure data security
+</p>
+
+<div class="required">
+    <b>Exercise 3.</b>
+    Improve the code in <samp>stack-server.h</samp> and <samp>stack-server.s</samp>. 
+    Make sure your code passed the test in <samp>constack-client.c</samp>.
+</div>
+
+<hr>
+<h2>
+    Part B: MapReduce
+</h2>
+<p>
+    In this part, you need to build a MapReduce library for
+    distributed computing, just like
+    the Google <a href="http://research.google.com/archive/mapreduce-osdi04.pdf">
+    MapReduce paper</a> depicts. To make the task manageable,
+    you will indeed build three versions of MapReduce incrementally:
+</p>
+<ol>
+    <li>
+        a sequential MapReduce where there is just a single thread to perform
+        all Map tasks
+        then Reduce tasks;
+    </li>
+    <li>
+        a concurrent MapReduce where there are N workers to perform Map
+        tasks and M workers to perform Reduce tasks and 1 master to
+        coordinate all tasks, on a same server; and
+    </li>
+    <li>
+        a distributed MapReduce where the workers might run on
+        distinct servers.
+    </li>
+</ol>
+
+<h3>1. Sequential MapReduce</h3>
+<p>
+    Check the <samp>file-struct.h</samp> file for details of the
+    function declarations. And, in conjunction with the two diagrams 
+    below, understand the data structure of single-threaded MapReduce.
+</p>
+
+<img src="figures/1.png" width="600" />
+<img src="figures/2.png" width="600" />
+
+<div class="question">
+    <b>Exercise 1</b>:
+    Complete the <samp>map_phase</samp> and <samp>reduce_phase</samp> 
+    functions in the <samp>seq-mr.c</samp> file to implement the 
+    functionality of single-threaded MapReduce.</br></br>
+    Hint: You may need a dataset for MapReduce. You can generate raw 
+    data in the Utils directory by running the following command:
+    <pre>css-lab@tiger:~$ <kbd>python3 generate-words.py 10 1M</kbd></pre>
+</div>
+
+
+<h3>2. Concurrent MapReduce</h3>
+<p>
+    Sequential MapReduce involves the use of a single thread to 
+    sequentially execute Map and Reduce functions. In this section, 
+    you will be implementing Map and Reduce using a multi-threaded 
+    model, and you will need to design appropriate data structures 
+    to address data synchronization challenges in concurrent processing.
+</p>
+<div class="question">
+    <b>Exercise 2</b>:
+    Design your data structures and implement thread communication and 
+    synchronization for concurrent processing, to complete MapReduce 
+    in a multi-threaded single-machine environment.
+    </br></br>
+</div>
+
+
+<h3>3. Distributed MapReduce</h3>
+<p>
+    In practical environments, the threads responsible for MapReduce 
+    processing are often distributed across multiple servers, also known 
+    as workers. Workers initiate connection requests to the Master to request 
+    tasks, and the Master assigns Map or Reduce tasks to the workers, thus 
+    completing distributed MapReduce.
+</p>
+
+<div class="question">
+    <b>Exercise 3</b>:
+    Implement distributed MapReduce using gorpc remote procedure calls. 
+    You need to design appropriate data structures to mitigate common conflicts 
+    and synchronization issues in a distributed context.
+</div>
+
+
+<hr>
+<h2>Part C: Sharded KV Stores</h2>
+<p>
+    In this part, you will build a distributed sharded key-value (KV) storage
+    system. A key-value storage system is a conceptual map from a
+    key to its corresponding value.
+    However, today's popular websites (e.g., Weibo) or applications
+    (e.g., WeChat) might have more than billions of users, hence neither
+    to store all user data nor to serve all requests is possible
+    with a single server. To this end, a natural idea is to split all
+    user data to store them on a group of servers, which is often called
+    <a href="https://en.wikipedia.org/wiki/Shard_(database_architecture)">
+        <em>shard</em></a>. The server storing the data is called a sharded
+    KV store.
+</p>
+
+<h3>1. Sharded KV Stores</h3>
+<p>
+    To utilize KV sharded storages, the client should maintain a
+    configuration C telling which sharded KV server the client
+    should talk to, in order to access the value
+    associated with a specified key. More precisely, suppose we
+    have n servers with addresses addr_i, 1<=i<=n, then we can maintain,
+    on each client, the following configuration C
+</p>
+<pre>
+    C: [(addr_1, [l_1, h_1]), (addr_2, [l_2, h_2]), ..., (addr_n, [l_n, h_n])]
+</pre>
+<p>
+    recording the address of the sharding server along with the
+    range of hash values. Hence, for any key "k", if its hash
+    value hash(k) is in the range [l_i, h_i],
+    then we know its data resides on the sharding server addr_i.
+</p>
+<p>
+    To better understand this idea, let us study an illustrating example.
+    Suppose we have four sharding servers with addresses from
+    addr_0 to addr_3, and have the following configuration:
+</p>
+<pre>
+    C: [(addr_0, [0, 249]),
+        (addr_1, [250, 499]),
+        (addr_2, [500, 749]),
+        (addr_3, [750, 999])]
+</pre>
+
+
+<p>
+    Hence, for a sample username "ZhangSan", if we have
+</p>
+<pre>
+    hash("ZhangSan") % 1000 == 347
+</pre>
+<p>
+    then we should talk to the server at address <samp>addr_1</samp>,
+    to access its values.
+</p>
+
+<div class="required">
+    <b>Exercise 1:</b>
+    Implement the configuration.
+</div>
+
+<p>
+    A sharded KV store S maps a key "k" to a list of values
+    v_1, ..., v_n associated with the key:
+</p>
+<pre>
+    S: k -> [v_1, v_2, ..., v_n]
+</pre>
+<p>
+    Both the key k and the value v_i, 1<=i<=n, are strings.
+    For example, when k is a username on a social media like WeChat,
+    the values v_1 to v_n are all posts she has published in
+    the "Moments".
+</p>
+<p>
+    A sharded KV store support a service with the following APIs:
+</p>
+<pre>
+    Get(k)      : retrieve the values associated with the key "k"
+    Put(k, v)   : associate "k" to "v" (will clear "k"'s existing values)
+    Append(k, v): append the value "v" to "k"'s value list; act as Put(k, v) is k does not exist
+    Delete(k)   : remove the key "k" and all values associated with it
+</pre>
+
+<div class="required">
+    <b>Exercise 2:</b>
+    Implement sharded KV stores.
+</div>
+
+<h3>2. Sharding Master</h3>
+<p>
+    While you have built a sharded KV store running on multiple servers,
+    the key limitation is that the store is static hence non-scalable.
+    Specifically, servers cannot be added or removed.
+    In this part of the lab, you will implement a sharding master, which
+    will manage all sharding servers, supporting server additions or removals.
+    In the meanwhile, key-value pairs on each sharding server should be
+    moved between servers, reflecting server configuration changes.
+    For example, when a server S is removed, all key-value pairs on
+    that server S should be moved to other servers before S is removed, hence
+    the data continue to be available despite the server removal.
+</p>
+<p>
+    In this part of the lab, you should concentrate on the sharding
+    master implementation, but do not need to care about data
+    movement between sharding servers. You will implement data movement
+    in the next part of the lab.
+</p>
+
+<p>
+    The sharding master maintain the aforementioned server configuration C:
+</p>
+<pre>
+    C: [(addr_1, [l_1, h_1]), (addr_2, [l_2, h_2]), ..., (addr_n, [l_n, h_n])]
+</pre>
+<p>
+    In the meanwhile, the sharding master runs a service supporting the
+    following APIs:
+</p>
+<pre>
+    GetConfig()       : retrieve the current configuration
+    AddServer(addr)   : add a new server with address "addr"
+    RemoveServer(addr): remove a server with address "addr"
+</pre>
+<p>
+    It should be noted that these APIs change the configuration C.
+    For example, given a configuration:
+</p>
+<pre>
+    C: [(addr_0, [0, 249]),
+        (addr_1, [250, 499]),
+        (addr_2, [500, 749]),
+        (addr_3, [750, 999])]
+</pre>
+<p>
+    A call to the RPC <samp>AddServer(addr_4)</samp> will result
+    in the following configuration:
+</p>
+<pre>
+    C: [(addr_0, [0, 199]),
+        (addr_1, [200, 399]),
+        (addr_2, [400, 599]),
+        (addr_3, [600, 799]),
+        (addr_4, [800, 999])]
+</pre>
+<p>
+    Next, a call to <samp>RemoveServer(addr_2)</samp> will result
+    in the following configuration:
+</p>
+<pre>
+    C: [(addr_0, [0, 249]),
+        (addr_1, [250, 499]),
+        (addr_3, [500, 749]),
+        (addr_4, [750, 999])]
+</pre>
+
+<div class="required">
+    <b>Exercise 3:</b>
+    Implement the code for the master configuration as well as the
+    master APIs.
+</div>
+
+<p>
+    The configuration C is essentially a
+    global property in that not only the sharding master but also
+    each sharding server S should maintain a copy.
+    In the meanwhile, the configuration C undergoes constant changes
+    with the additions or removals of sharding servers.
+    Hence, each sharding server S should make its local copy
+    of configuration up-to-date, by invoking the sharding master's
+    <samp>GetConfig()</samp> RPC periodically.
+</p>
+
+<div class="required">
+    <b>Exercise 4:</b>
+    Implement the configuration updating.
+</div>
+
+<h3>3. KV Shuffling</h3>
+<p>
+    In this part of the lab, you will implement KV shuffling between
+    sharding servers to move KV pairs. Specifically, when a new server
+    S is added into the configuration, KV pairs on other servers might
+    move to this new server S, according to the new configuration.
+    Otherwise, when an existing server S is removed from the configuration,
+    KV pairs on the server S should be moved to other sharding servers,
+    before the server S leaves.
+</p>
+
+
+<div class="required">
+    <b>Exercise 5:</b>
+    Implement KV shuffling.
+</div>
+
+
+
+
+
+
+<br>
+<hr>
+This completes this lab. Remember to zip you
+homework with file name <samp>ID-lab-5.zip</samp> (e.g.,
+<samp>SA19225789-lab-5.zip</samp>), and
+submit it to <a href="https://bb.ustc.edu.cn/">Online
+    Teaching Platform</a>.
+
+<p>
+    Happy hacking!
+</p>
+
+<br>
+<br>
+
+
+
+</body>
+
+</html>
+
+
+
+
+
+
+
+
+
