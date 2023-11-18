@@ -10,7 +10,7 @@
 
 可以，如图所示，pipeline的各进程（3082、3084、3085、3086）依次向下游传递消息，pipeline的最后一个进程在console打印结果。在此过程中，由于3082号进程运行时间较长，故隔了10s才打印出了结果，期间可以自由地使用终端。
 
-![image-20231009133946903](C:\Users\12624\AppData\Roaming\Typora\typora-user-images\image-20231009133946903.png)
+![image-20231009133946903](./report.assets/image-20231009133946903.png)
 
 
 
@@ -34,7 +34,7 @@
 
 去掉`wait`后，父进程无法知晓子进程是否结束。在这个例子中，父子进程均很快退出，故没有什么太大的影响。但如果父进程运行较慢，例如在父进程间插入`sleep(100)`，则子进程会变为僵尸进程（进程6028的状态栏为`defunct`）
 
-![image-20231009141300685](C:\Users\12624\AppData\Roaming\Typora\typora-user-images\image-20231009141300685.png)
+![image-20231009141300685](./report.assets/image-20231009141300685.png)
 
 僵尸进程是一个早已死亡的进程，但在进程表中仍占了一个位置。如果该进程的父进程已经结束了，那么该进程就不会变成僵尸进程。因为每个进程结束的时候，系统都会扫描当前系统中所运行的所有进程，看看有没有哪个进程是刚刚结束的这个进程的子进程。如果有的话就由Init进程来接管他，成为他的父进程，从而保证每个进程都会有一个父进程。而Init进程会自动`wait`其子进程，因此被Init接管的所有进程都不会变成僵尸进程。
 
@@ -100,7 +100,7 @@ int main()
 
 ```
 
-![image-20231009145613103](C:\Users\12624\AppData\Roaming\Typora\typora-user-images\image-20231009145613103.png)
+![image-20231009145613103](./report.assets/image-20231009145613103.png)
 
 ### **Exercise 4**: How does the above program implement input redirection?
 
@@ -121,7 +121,7 @@ int main()
 
 不能，否则`dup(p[0])`会将`p[0]`对应的文件描述符复制到3号文件描述符，而不是0号。`wc`程序也就无法从标准输入(0号文件描述符对应的输入)那里获取正确的输入了。
 
-![image-20231009162457903](C:\Users\12624\AppData\Roaming\Typora\typora-user-images\image-20231009162457903.png)
+![image-20231009162457903](./report.assets/image-20231009162457903.png)
 
 
 
@@ -265,7 +265,7 @@ void Cmd_print(struct Cmd_t *cmd)
 
 实验结果如下，可以很好地支持各种shell语句：
 
-![image-20231009205740418](C:\Users\12624\AppData\Roaming\Typora\typora-user-images\image-20231009205740418.png)
+![image-20231009205740418](./report.assets/image-20231009205740418.png)
 
 ### Exercise 9
 
@@ -417,13 +417,13 @@ void Cmd_run(struct Cmd_t *cmd)
 
 `cat hello.txt > c.txt `
 
-![image-20231009220938119](C:\Users\12624\AppData\Roaming\Typora\typora-user-images\image-20231009220938119.png)
+![image-20231009220938119](./report.assets/image-20231009220938119.png)
 
 
 
 `sleep 10 &`立刻返回终端，`sleep 10`则会阻塞终端
 
-![image-20231009221231987](C:\Users\12624\AppData\Roaming\Typora\typora-user-images\image-20231009221231987.png)
+![image-20231009221231987](./report.assets/image-20231009221231987.png)
 
 ![image-20231009221308859](C:\Users\12624\AppData\Roaming\Typora\typora-user-images\image-20231009221308859.png)
 
@@ -431,13 +431,13 @@ void Cmd_run(struct Cmd_t *cmd)
 
 `cat hello.txt | grep -n hello>c.txt; cat c.txt; ls`
 
-![image-20231009221216388](C:\Users\12624\AppData\Roaming\Typora\typora-user-images\image-20231009221216388.png)
+![image-20231009221216388](./report.assets/image-20231009221216388.png)
 
 
 
 输入重定向、带有'/'的文件路径也可以支持：`echo hello world >/tmp/xyz; wc </tmp/xyz`
 
-![image-20231009223818034](C:\Users\12624\AppData\Roaming\Typora\typora-user-images\image-20231009223818034.png)
+![image-20231009223818034](./report.assets/image-20231009223818034.png)
 
 
 
@@ -448,4 +448,4 @@ sleep 5; ls | grep i &
 ls
 ```
 
-![image-20231009224312538](C:\Users\12624\AppData\Roaming\Typora\typora-user-images\image-20231009224312538.png)
+![image-20231009224312538](./report.assets/image-20231009224312538.png)
